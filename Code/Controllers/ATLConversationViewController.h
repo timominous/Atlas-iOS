@@ -257,4 +257,11 @@
  */
 @property (nonatomic) BOOL shouldDisplayAvatarItemForOneOtherParticipant;
 
+
+/**
+ @abstract Large image uploads will be resized to this value in pixels. Default is set to 0.
+ @default `0`
+ */
+@property (nonatomic) NSUInteger maximumImageSize;
+
 @end

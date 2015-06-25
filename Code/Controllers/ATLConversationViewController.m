@@ -99,6 +99,7 @@ static NSString *const ATLDefaultPushAlertText = @"sent you a message.";
     _sectionFooters = [NSHashTable weakObjectsHashTable];
     _objectChanges = [NSMutableArray new];
     _animationQueue = dispatch_queue_create("com.atlas.animationQueue", DISPATCH_QUEUE_SERIAL);
+    _maximumImageSize = 0;
 }
 
 - (void)loadView
@@ -685,10 +686,11 @@ static NSString *const ATLDefaultPushAlertText = @"sent you a message.";
         NSURL *assetURL = (NSURL *)info[UIImagePickerControllerReferenceURL];
         ATLMediaAttachment *mediaAttachment;
         if (assetURL) {
-            mediaAttachment = [ATLMediaAttachment mediaAttachmentWithAssetURL:assetURL thumbnailSize:ATLDefaultThumbnailSize];
+            mediaAttachment = [ATLMediaAttachment mediaAttachmentWithAssetURL:assetURL maximumSize:self.maximumImageSize thumbnailSize:ATLDefaultThumbnailSize];
         } else if (info[UIImagePickerControllerOriginalImage]) {
             mediaAttachment = [ATLMediaAttachment mediaAttachmentWithImage:info[UIImagePickerControllerOriginalImage]
                                                                   metadata:info[UIImagePickerControllerMediaMetadata]
+                                                               maximumSize:self.maximumImageSize
                                                              thumbnailSize:ATLDefaultThumbnailSize];
         } else {
             return;

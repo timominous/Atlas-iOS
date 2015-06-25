@@ -42,7 +42,10 @@
     self.dateFormatter.dateStyle = NSDateFormatterShortStyle;
     self.dateFormatter.timeStyle = NSDateFormatterShortStyle;
     [self configureTitle];
-    
+  
+    // Change this value to set maximum image size.
+    self.maximumImageSize = 0;
+  
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(userDidTapLink:) name:ATLUserDidTapLinkNotification object:nil];
 }
 

@@ -59,6 +59,15 @@ typedef NS_ENUM(NSUInteger, ATLMediaAttachmentType) {
 + (instancetype)mediaAttachmentWithAssetURL:(NSURL *)assetURL thumbnailSize:(NSUInteger)thumbnailSize;
 
 /**
+ @abstract Creates a new `ATLMediaAttachment` instance of type `ATLMediaAttachmentTypeImage` based on Apple's Photo Library's `ALAsset` URL identifier.
+ @param assetURL URL path of the media asset.
+ @param maximumSize Maximum size of image.
+ @param thumbnailSize The size of the thumbnail.
+ @return Instance of `ATLMediaAttachment` containing streams.
+ */
++ (instancetype)mediaAttachmentWithAssetURL:(NSURL *)assetURL maximumSize:(NSUInteger)maximumSize thumbnailSize:(NSUInteger)thumbnailSize;
+
+/**
  @abstract Creates a new `ATLMediaAttachment` instance of type `ATLMediaAttachmentTypeImage` based on `UIImage`.
  @param assetURL Image in a form of `UIImage`.
  @param metadata The metadata that will be attached to the image content (such as EXIF).
@@ -66,6 +75,16 @@ typedef NS_ENUM(NSUInteger, ATLMediaAttachmentType) {
  @return Instance of `ATLMediaAttachment` containing streams.
  */
 + (instancetype)mediaAttachmentWithImage:(UIImage *)image metadata:(NSDictionary *)metadata thumbnailSize:(NSUInteger)thumbnailSize;
+
+/**
+ @abstract Creates a new `ATLMediaAttachment` instance of type `ATLMediaAttachmentTypeImage` based on `UIImage`.
+ @param assetURL Image in a form of `UIImage`.
+ @param maximumSize Maximum size of image.
+ @param metadata The metadata that will be attached to the image content (such as EXIF).
+ @param thumbnailSize The size of the thumbnail.
+ @return Instance of `ATLMediaAttachment` containing streams.
+ */
++ (instancetype)mediaAttachmentWithImage:(UIImage *)image metadata:(NSDictionary *)metadata maximumSize:(NSUInteger)maximumSize thumbnailSize:(NSUInteger)thumbnailSize;
 
 /**
  @abstract Creates a new `ATLMediaAttachment` instance of type `ATLMediaAttachmentTypeText` based on `NSString` text.

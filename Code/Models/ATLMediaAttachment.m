@@ -57,7 +57,7 @@ static float const ATLMediaAttachmentDefaultThumbnailJPEGCompression = 0.5f;
 
 @property (nonatomic) NSURL *inputAssetURL;
 
-- (instancetype)initWithAssetURL:(NSURL *)assetURL thumbnailSize:(NSUInteger)thumbnailSize;
+- (instancetype)initWithAssetURL:(NSURL *)assetURL maximumSize:(NSUInteger)maximumSize thumbnailSize:(NSUInteger)thumbnailSize;
 
 @end
 
@@ -65,7 +65,7 @@ static float const ATLMediaAttachmentDefaultThumbnailJPEGCompression = 0.5f;
 
 @property (nonatomic) UIImage *inputImage;
 
-- (instancetype)initWithImage:(UIImage *)image metadata:(NSDictionary *)metadata thumbnailSize:(NSUInteger)thumbnailSize;
+- (instancetype)initWithImage:(UIImage *)image metadata:(NSDictionary *)metadata maximumSize:(NSUInteger)maximumSize thumbnailSize:(NSUInteger)thumbnailSize;
 
 @end
 
@@ -85,7 +85,7 @@ static float const ATLMediaAttachmentDefaultThumbnailJPEGCompression = 0.5f;
 
 @implementation ATLAssetMediaAttachment
 
-- (instancetype)initWithAssetURL:(NSURL *)assetURL thumbnailSize:(NSUInteger)thumbnailSize
+- (instancetype)initWithAssetURL:(NSURL *)assetURL maximumSize:(NSUInteger)maximumSize thumbnailSize:(NSUInteger)thumbnailSize
 {
     self = [super init];
     if (self) {
@@ -111,6 +111,8 @@ static float const ATLMediaAttachmentDefaultThumbnailJPEGCompression = 0.5f;
         // Prepare the input stream and MIMEType for the full size media.
         // --------------------------------------------------------------------
         self.mediaInputStream = [ATLMediaInputStream mediaInputStreamWithAssetURL:asset.defaultRepresentation.url];
+        ((ATLMediaInputStream *)self.mediaInputStream).maximumSize = maximumSize;
+      
         self.mediaMIMEType = (__bridge NSString *)(UTTypeCopyPreferredTagWithClass((__bridge CFStringRef)(asset.defaultRepresentation.UTI), kUTTagClassMIMEType));
         
         // --------------------------------------------------------------------
@@ -166,7 +168,7 @@ static float const ATLMediaAttachmentDefaultThumbnailJPEGCompression = 0.5f;
 
 @implementation ATLImageMediaAttachment
 
-- (instancetype)initWithImage:(UIImage *)image metadata:(NSDictionary *)metadata thumbnailSize:(NSUInteger)thumbnailSize
+- (instancetype)initWithImage:(UIImage *)image metadata:(NSDictionary *)metadata maximumSize:(NSUInteger)maximumSize thumbnailSize:(NSUInteger)thumbnailSize
 {
     self = [super init];
     if (self) {
@@ -179,6 +181,7 @@ static float const ATLMediaAttachmentDefaultThumbnailJPEGCompression = 0.5f;
         // Prepare the input stream and MIMEType for the full size media.
         // --------------------------------------------------------------------
         self.mediaInputStream = [ATLMediaInputStream mediaInputStreamWithImage:image metadata:metadata];
+        ((ATLMediaInputStream *)self.mediaInputStream).maximumSize = maximumSize;
         self.mediaMIMEType = ATLMIMETypeImageJPEG;
 
         // --------------------------------------------------------------------
@@ -276,12 +279,22 @@ static float const ATLMediaAttachmentDefaultThumbnailJPEGCompression = 0.5f;
 
 + (instancetype)mediaAttachmentWithAssetURL:(NSURL *)assetURL thumbnailSize:(NSUInteger)thumbnailSize
 {
-    return [[ATLAssetMediaAttachment alloc] initWithAssetURL:assetURL thumbnailSize:thumbnailSize];
+    return [self mediaAttachmentWithAssetURL:assetURL maximumSize:0 thumbnailSize:thumbnailSize];
+}
+
++ (instancetype)mediaAttachmentWithAssetURL:(NSURL *)assetURL maximumSize:(NSUInteger)maximumSize thumbnailSize:(NSUInteger)thumbnailSize
+{
+    return [[ATLAssetMediaAttachment alloc] initWithAssetURL:assetURL maximumSize:maximumSize thumbnailSize:thumbnailSize];
 }
 
 + (instancetype)mediaAttachmentWithImage:(UIImage *)image metadata:(NSDictionary *)metadata thumbnailSize:(NSUInteger)thumbnailSize;
 {
-    return [[ATLImageMediaAttachment alloc] initWithImage:image metadata:(NSDictionary *)metadata thumbnailSize:thumbnailSize];
+    return [self mediaAttachmentWithImage:image metadata:metadata maximumSize:0 thumbnailSize:thumbnailSize];
+}
+
++ (instancetype)mediaAttachmentWithImage:(UIImage *)image metadata:(NSDictionary *)metadata maximumSize:(NSUInteger)maximumSize thumbnailSize:(NSUInteger)thumbnailSize
+{
+    return [[ATLImageMediaAttachment alloc] initWithImage:image metadata:(NSDictionary *)metadata maximumSize:maximumSize thumbnailSize:thumbnailSize];
 }
 
 + (instancetype)mediaAttachmentWithText:(NSString *)text

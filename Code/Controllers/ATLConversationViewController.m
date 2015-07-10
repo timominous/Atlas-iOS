@@ -57,6 +57,17 @@ static NSString *const ATLDefaultPushAlertGIF = @"sent you a GIF.";
 static NSString *const ATLDefaultPushAlertImage = @"sent you a photo.";
 static NSString *const ATLDefaultPushAlertLocation = @"sent you a location.";
 static NSString *const ATLDefaultPushAlertText = @"sent you a message.";
+static NSInteger const ATLPhotoActionSheet = 1000;
+
++ (NSCache *)sharedMediaAttachmentCache
+{
+    static NSCache *_sharedCache;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        _sharedCache = [NSCache new];
+    });
+    return _sharedCache;
+}
 
 + (instancetype)conversationViewControllerWithLayerClient:(LYRClient *)layerClient;
 {
@@ -147,6 +158,9 @@ static NSString *const ATLDefaultPushAlertText = @"sent you a message.";
     if (!self.hasAppeared) {
         [self.collectionView layoutIfNeeded];
     }
+    if (!self.hasAppeared && [[[self class] sharedMediaAttachmentCache] objectForKey:self.conversation.identifier]) {
+        [self loadCachedMediaAttachments];
+    }
 }
 
 - (void)viewDidAppear:(BOOL)animated
@@ -161,8 +175,27 @@ static NSString *const ATLDefaultPushAlertText = @"sent you a message.";
 
 - (void)dealloc
 {
+    if (self.messageInputToolbar.mediaAttachments.count > 0) {
+        [self cacheMediaAttachments];
+    }
     self.collectionView.delegate = nil;
     [[NSNotificationCenter defaultCenter] removeObserver:self];
+}
+
+- (void)cacheMediaAttachments
+{
+    [[[self class] sharedMediaAttachmentCache] setObject:self.messageInputToolbar.mediaAttachments forKey:self.conversation.identifier];
+}
+
+- (void)loadCachedMediaAttachments
+{
+    NSArray *mediaAttachments = [[[self class] sharedMediaAttachmentCache] objectForKey:self.conversation.identifier];
+    for (int i = 0; i < mediaAttachments.count; i++) {
+        ATLMediaAttachment *attachment = [mediaAttachments objectAtIndex:i];
+        BOOL shouldHaveLineBreak = (i < mediaAttachments.count - 1) || !(attachment.mediaMIMEType == ATLMIMETypeTextPlain);
+        [self.messageInputToolbar insertMediaAttachment:attachment withEndLineBreak:shouldHaveLineBreak];
+    }
+    [[[self class] sharedMediaAttachmentCache] removeObjectForKey:self.conversation.identifier];
 }
 
 #pragma mark - Conversation Data Source Setup
@@ -513,6 +546,7 @@ static NSString *const ATLDefaultPushAlertText = @"sent you a message.";
                                                destructiveButtonTitle:nil
                                                     otherButtonTitles:@"Take Photo", @"Last Photo Taken", @"Photo Library", nil];
     [actionSheet showInView:self.view];
+    actionSheet.tag = ATLPhotoActionSheet;
 }
 
 - (void)messageInputToolbar:(ATLMessageInputToolbar *)messageInputToolbar didTapRightAccessoryButton:(UIButton *)rightAccessoryButton
@@ -633,21 +667,23 @@ static NSString *const ATLDefaultPushAlertText = @"sent you a message.";
 
 - (void)actionSheet:(UIActionSheet *)actionSheet didDismissWithButtonIndex:(NSInteger)buttonIndex
 {
-    switch (buttonIndex) {
-        case 0:
-            [self displayImagePickerWithSourceType:UIImagePickerControllerSourceTypeCamera];
-            break;
-            
-        case 1:
-           [self captureLastPhotoTaken];
-            break;
-          
-        case 2:
-            [self displayImagePickerWithSourceType:UIImagePickerControllerSourceTypePhotoLibrary];
-            break;
-            
-        default:
-            break;
+    if (actionSheet.tag == ATLPhotoActionSheet) {
+        switch (buttonIndex) {
+            case 0:
+                [self displayImagePickerWithSourceType:UIImagePickerControllerSourceTypeCamera];
+                break;
+                
+            case 1:
+                [self captureLastPhotoTaken];
+                break;
+                
+            case 2:
+                [self displayImagePickerWithSourceType:UIImagePickerControllerSourceTypePhotoLibrary];
+                break;
+                
+            default:
+                break;
+        }
     }
 }
 
@@ -672,7 +708,7 @@ static NSString *const ATLDefaultPushAlertText = @"sent you a message.";
             NSLog(@"Failed to capture last photo with error: %@", [error localizedDescription]);
         } else {
             ATLMediaAttachment *mediaAttachment = [ATLMediaAttachment mediaAttachmentWithAssetURL:assetURL thumbnailSize:ATLDefaultThumbnailSize];
-            [self.messageInputToolbar insertMediaAttachment:mediaAttachment];
+            [self.messageInputToolbar insertMediaAttachment:mediaAttachment withEndLineBreak:YES];
         }
     });
 }
@@ -695,7 +731,7 @@ static NSString *const ATLDefaultPushAlertText = @"sent you a message.";
         } else {
             return;
         }
-        [self.messageInputToolbar insertMediaAttachment:mediaAttachment];
+        [self.messageInputToolbar insertMediaAttachment:mediaAttachment withEndLineBreak:YES];
     }
     [self.navigationController dismissViewControllerAnimated:YES completion:nil];
     [self.view becomeFirstResponder];
@@ -1126,37 +1162,40 @@ static NSString *const ATLDefaultPushAlertText = @"sent you a message.";
         return;
     }
     
-    dispatch_suspend(self.animationQueue);
     // Prevent scrolling if user has scrolled up into the conversation history.
     BOOL shouldScrollToBottom = [self shouldScrollToBottom];
-    [self.collectionView performBatchUpdates:^{
-        for (ATLDataSourceChange *change in self.objectChanges) {
-            switch (change.type) {
-                case LYRQueryControllerChangeTypeInsert:
-                    [self.collectionView insertSections:[NSIndexSet indexSetWithIndex:change.newIndex]];
-                    break;
-                    
-                case LYRQueryControllerChangeTypeMove:
-                    [self.collectionView moveSection:change.currentIndex toSection:change.newIndex];
-                    break;
-                    
-                case LYRQueryControllerChangeTypeDelete:
-                    [self.collectionView deleteSections:[NSIndexSet indexSetWithIndex:change.currentIndex]];
-                    break;
-                    
-                case LYRQueryControllerChangeTypeUpdate:
-                    // If we call reloadSections: for a section that is already being animated due to another move (e.g. moving section 17 to 16 causes section 16 to be moved/animated to 17 and then we also reload section 16), UICollectionView will throw an exception. But since all onscreen sections will be reconfigured (see below) we don't need to reload the sections here anyway.
-                    break;
-                    
-                default:
-                    break;
-            }
-        }
-        [self.objectChanges removeAllObjects];
-    } completion:^(BOOL finished) {
-        dispatch_resume(self.animationQueue);
-    }];
     
+    // ensure the animation's queue will resume
+    if (self.collectionView) {
+        dispatch_suspend(self.animationQueue);
+        [self.collectionView performBatchUpdates:^{
+            for (ATLDataSourceChange *change in self.objectChanges) {
+                switch (change.type) {
+                    case LYRQueryControllerChangeTypeInsert:
+                        [self.collectionView insertSections:[NSIndexSet indexSetWithIndex:change.newIndex]];
+                        break;
+                        
+                    case LYRQueryControllerChangeTypeMove:
+                        [self.collectionView moveSection:change.currentIndex toSection:change.newIndex];
+                        break;
+                        
+                    case LYRQueryControllerChangeTypeDelete:
+                        [self.collectionView deleteSections:[NSIndexSet indexSetWithIndex:change.currentIndex]];
+                        break;
+                        
+                    case LYRQueryControllerChangeTypeUpdate:
+                        // If we call reloadSections: for a section that is already being animated due to another move (e.g. moving section 17 to 16 causes section 16 to be moved/animated to 17 and then we also reload section 16), UICollectionView will throw an exception. But since all onscreen sections will be reconfigured (see below) we don't need to reload the sections here anyway.
+                        break;
+                        
+                    default:
+                        break;
+                }
+            }
+            [self.objectChanges removeAllObjects];
+        } completion:^(BOOL finished) {
+            dispatch_resume(self.animationQueue);
+        }];
+    }    
     [self configureCollectionViewElements];
     
     if (shouldScrollToBottom)  {
@@ -1247,8 +1286,13 @@ static NSString *const ATLDefaultPushAlertText = @"sent you a message.";
 
 - (NSString *)participantNameForMessage:(LYRMessage *)message
 {
-    id<ATLParticipant> participant = [self participantForIdentifier:message.sender.userID];
-    NSString *participantName = participant.fullName ?: @"Unknown User";
+    NSString *participantName;
+    if (message.sender.userID) {
+        id<ATLParticipant> participant = [self participantForIdentifier:message.sender.userID];
+        participantName = participant.fullName ?: @"Unknown User";
+    } else {
+        participantName = message.sender.name;
+    }
     return participantName;
 }
 

@@ -22,6 +22,7 @@
 #import "ATLTestInterface.h"
 #import "ATLSampleConversationViewController.h"
 #import "ATLUserMock.h"
+#import "ATLTestUtilities.h"
 
 extern NSString *const ATLAvatarImageViewAccessibilityLabel;
 
@@ -95,6 +96,113 @@ extern NSString *const ATLMessageInputToolbarSendButton;
     [self setupConversationViewController];
     [self setRootViewController:self.viewController];
     [self sendPhotoMessage];
+}
+
+- (void)testToVerifyCachingTextMediaAttachment
+{
+    [self setupConversationViewController];
+    UIViewController *baseViewController = [UIViewController new];
+    [self setRootViewController:baseViewController];
+    [baseViewController.navigationController pushViewController:self.viewController animated:YES];
+    [tester waitForAnimationsToFinish];
+
+    ATLMessageInputToolbar *toolBar = (ATLMessageInputToolbar *)[tester waitForViewWithAccessibilityLabel:@"Message Input Toolbar"];
+    [toolBar.textInputView setText:@"Test"];
+    self.viewController = nil;
+    [baseViewController.navigationController dismissViewControllerAnimated:YES completion:nil];
+    [tester waitForAnimationsToFinish];
+
+    [self setupConversationViewController];
+    [baseViewController.navigationController pushViewController:self.viewController animated:YES];
+    toolBar = (ATLMessageInputToolbar *)[tester waitForViewWithAccessibilityLabel:@"Message Input Toolbar"];
+    expect(toolBar.textInputView.text).to.equal(@"Test");
+}
+
+- (void)testToVerifyCachingImageMediaAttachment
+{
+    [self setupConversationViewController];
+    UIViewController *baseViewController = [UIViewController new];
+    [self setRootViewController:baseViewController];
+    [baseViewController.navigationController pushViewController:self.viewController animated:YES];
+    [tester waitForAnimationsToFinish];
+    
+    ATLMessageInputToolbar *toolBar = (ATLMessageInputToolbar *)[tester waitForViewWithAccessibilityLabel:@"Message Input Toolbar"];
+    UIImage *image = ATLTestAttachmentMakeImageWithSize(CGSizeMake(1024, 512));
+    ATLMediaAttachment *attachement = [ATLMediaAttachment mediaAttachmentWithImage:image metadata:nil thumbnailSize:100];
+    [toolBar insertMediaAttachment:attachement withEndLineBreak:NO];
+    self.viewController = nil;
+    [baseViewController.navigationController dismissViewControllerAnimated:YES completion:nil];
+    [tester waitForAnimationsToFinish];
+    
+    [self setupConversationViewController];
+    [baseViewController.navigationController pushViewController:self.viewController animated:YES];
+    toolBar = (ATLMessageInputToolbar *)[tester waitForViewWithAccessibilityLabel:@"Message Input Toolbar"];
+    expect(toolBar.mediaAttachments.count).to.equal(1);
+    ATLMediaAttachment *imageAttachment = toolBar.mediaAttachments[0];
+    expect(imageAttachment.mediaMIMEType).to.equal(ATLMIMETypeImageJPEG);
+}
+
+- (void)testToVerifyCachingTextAndImageMediaAttachments
+{
+    [self setupConversationViewController];
+    UIViewController *baseViewController = [UIViewController new];
+    [self setRootViewController:baseViewController];
+    [baseViewController.navigationController pushViewController:self.viewController animated:YES];
+    [tester waitForAnimationsToFinish];
+    
+    ATLMessageInputToolbar *toolBar = (ATLMessageInputToolbar *)[tester waitForViewWithAccessibilityLabel:@"Message Input Toolbar"];
+    [toolBar.textInputView setText:@"Test"];
+    UIImage *image = ATLTestAttachmentMakeImageWithSize(CGSizeMake(1024, 512));
+    ATLMediaAttachment *attachement = [ATLMediaAttachment mediaAttachmentWithImage:image metadata:nil thumbnailSize:100];
+    [toolBar insertMediaAttachment:attachement withEndLineBreak:NO];
+    self.viewController = nil;
+    [baseViewController.navigationController dismissViewControllerAnimated:YES completion:nil];
+    [tester waitForAnimationsToFinish];
+    
+    [self setupConversationViewController];
+    [baseViewController.navigationController pushViewController:self.viewController animated:YES];
+    toolBar = (ATLMessageInputToolbar *)[tester waitForViewWithAccessibilityLabel:@"Message Input Toolbar"];
+    expect(toolBar.mediaAttachments.count).to.equal(2);
+    ATLMediaAttachment *textAttachment = toolBar.mediaAttachments[0];
+    expect(textAttachment.mediaMIMEType).to.equal(ATLMIMETypeTextPlain);
+    expect(textAttachment.textRepresentation).to.equal(@"Test");
+    ATLMediaAttachment *imageAttachment = toolBar.mediaAttachments[1];
+    expect(imageAttachment.mediaMIMEType).to.equal(ATLMIMETypeImageJPEG);
+}
+
+- (void)testToVerifyCachingSeveralMediaAttachments
+{
+    [self setupConversationViewController];
+    UIViewController *baseViewController = [UIViewController new];
+    [self setRootViewController:baseViewController];
+    [baseViewController.navigationController pushViewController:self.viewController animated:YES];
+    [tester waitForAnimationsToFinish];
+    
+    ATLMessageInputToolbar *toolBar = (ATLMessageInputToolbar *)[tester waitForViewWithAccessibilityLabel:@"Message Input Toolbar"];
+    ATLMediaAttachment *textAttachment1 = [ATLMediaAttachment mediaAttachmentWithText:@"test1"];
+    [toolBar insertMediaAttachment:textAttachment1 withEndLineBreak:YES];
+    UIImage *image = ATLTestAttachmentMakeImageWithSize(CGSizeMake(1024, 512));
+    ATLMediaAttachment *attachement = [ATLMediaAttachment mediaAttachmentWithImage:image metadata:nil thumbnailSize:100];
+    [toolBar insertMediaAttachment:attachement withEndLineBreak:YES];
+    ATLMediaAttachment *textAttachment2 = [ATLMediaAttachment mediaAttachmentWithText:@"test2"];
+    [toolBar insertMediaAttachment:textAttachment2 withEndLineBreak:NO];
+    
+    self.viewController = nil;
+    [baseViewController.navigationController dismissViewControllerAnimated:YES completion:nil];
+    [tester waitForAnimationsToFinish];
+    
+    [self setupConversationViewController];
+    [baseViewController.navigationController pushViewController:self.viewController animated:YES];
+    toolBar = (ATLMessageInputToolbar *)[tester waitForViewWithAccessibilityLabel:@"Message Input Toolbar"];
+    expect(toolBar.mediaAttachments.count).to.equal(3);
+    ATLMediaAttachment *testTextAttachment1 = toolBar.mediaAttachments[0];
+    expect(testTextAttachment1.mediaMIMEType).to.equal(ATLMIMETypeTextPlain);
+    expect(testTextAttachment1.textRepresentation).to.equal(@"test1");
+    ATLMediaAttachment *imageAttachment = toolBar.mediaAttachments[1];
+    expect(imageAttachment.mediaMIMEType).to.equal(ATLMIMETypeImageJPEG);
+    ATLMediaAttachment *testTextAttachment2 = toolBar.mediaAttachments[2];
+    expect(testTextAttachment2.mediaMIMEType).to.equal(ATLMIMETypeTextPlain);
+    expect(testTextAttachment2.textRepresentation).to.equal(@"test2");
 }
 
 #pragma mark - ATLConversationViewControllerDelegate
@@ -275,6 +383,42 @@ extern NSString *const ATLMessageInputToolbarSendButton;
     [tester waitForViewWithAccessibilityLabel:ATLAvatarImageViewAccessibilityLabel];
 }
 
+- (void)testToVerifySenderNameIsDisplayedInGroupConversation
+{
+    ATLUserMock *mockUser2 = [ATLUserMock userWithMockUserName:ATLMockUserNameKevin];
+    LYRClientMock *layerClient = [LYRClientMock layerClientMockWithAuthenticatedUserID:mockUser2.participantIdentifier];
+    [self.conversation addParticipants:[NSSet setWithObject:mockUser2.participantIdentifier] error:nil];
+    
+    LYRMessagePartMock *part = [LYRMessagePartMock messagePartWithText:@"Test"];
+    LYRMessageMock *message = [layerClient newMessageWithParts:@[part] options:nil error:nil];
+    [self.conversation sendMessage:message error:nil];
+    
+    [self setupConversationViewController];
+    [self setRootViewController:self.viewController];
+    
+    [tester waitForTimeInterval:10];
+    UILabel *label = (UILabel *)[tester waitForViewWithAccessibilityLabel:ATLConversationViewHeaderIdentifier];
+    expect(label.text).to.equal(mockUser2.fullName);
+}
+
+- (void)testToVerifyPlatformMessageSenderNameIsDisplayedInGroupConversation
+{
+    ATLUserMock *mockUser2 = [ATLUserMock userWithMockUserName:ATLMockUserNameKevin];
+    LYRClientMock *layerClient = [LYRClientMock layerClientMockWithAuthenticatedUserID:mockUser2.participantIdentifier];
+    [self.conversation addParticipants:[NSSet setWithObject:mockUser2.participantIdentifier] error:nil];
+    
+    LYRMessagePartMock *part = [LYRMessagePartMock messagePartWithText:@"Test"];
+    LYRMessageMock *message = [layerClient newPlatformMessageWithParts:@[part] senderName:@"Platform" options:nil error:nil];
+    [self.conversation sendMessage:message error:nil];
+    
+    [self setupConversationViewController];
+    [self setRootViewController:self.viewController];
+    
+    [tester waitForTimeInterval:10];
+    UILabel *label = (UILabel *)[tester waitForViewWithAccessibilityLabel:ATLConversationViewHeaderIdentifier];
+    expect(label.text).to.equal(@"Platform");
+}
+
 - (void)testToVerifyCustomAvatarImageDiameter
 {
     [[ATLAvatarImageView appearance] setAvatarImageViewDiameter:40];
@@ -449,7 +593,7 @@ extern NSString *const ATLMessageInputToolbarSendButton;
 
 - (void)sendPhotoMessage
 {
-    UIImage *image = [UIImage imageNamed:@"test-logo"];
+    UIImage *image = ATLTestAttachmentMakeImageWithSize(CGSizeMake(1024, 512));
     ATLMediaAttachment *attachement = [ATLMediaAttachment mediaAttachmentWithImage:image metadata:nil thumbnailSize:100];
     NSError *error;
     LYRMessageMock *message = [self.testInterface.layerClient newMessageWithParts:ATLMessagePartsWithMediaAttachment(attachement) options:nil error:&error];

@@ -43,7 +43,7 @@ NSInteger const ATLQueryControllerPaginationWindow = 30;
         NSUInteger numberOfMessagesAvailable = [layerClient countForQuery:query error:nil];
         NSUInteger numberOfMessagesToDisplay = MIN(numberOfMessagesAvailable, ATLQueryControllerPaginationWindow);
     
-        _queryController = [layerClient queryControllerWithQuery:query];
+      _queryController = [layerClient queryControllerWithQuery:query error:nil];
         _queryController.updatableProperties = [NSSet setWithObjects:@"parts.transferStatus", @"recipientStatusByUserID", @"sentAt", nil];
         _queryController.paginationWindow = -numberOfMessagesToDisplay;
         

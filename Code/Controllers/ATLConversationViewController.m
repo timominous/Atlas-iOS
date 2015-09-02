@@ -566,7 +566,7 @@ static NSInteger const ATLPhotoActionSheet = 1000;
         return;
     }
     NSOrderedSet *messages = [self messagesForMediaAttachments:messageInputToolbar.mediaAttachments];
-    if (messages.count == 0 && self.messageInputToolbar.textInputView.text.length == 0) {
+    if (messages && messages.count == 0 && messageInputToolbar.textInputView.text.length == 0) {
         [self sendLocationMessage];
     } else {
         for (LYRMessage *message in messages) {
@@ -1166,13 +1166,16 @@ static NSInteger const ATLPhotoActionSheet = 1000;
 
 - (void)queryControllerDidChangeContent:(LYRQueryController *)queryController
 {
+    NSArray *objectChanges = [self.objectChanges copy];
+    [self.objectChanges removeAllObjects];
+    
     if (self.conversationDataSource.isExpandingPaginationWindow) {
         self.showingMoreMessagesIndicator = [self.conversationDataSource moreMessagesAvailable];
         [self reloadCollectionViewAdjustingForContentHeightChange];
         return;
     }
     
-    if (self.objectChanges.count == 0) {
+    if (objectChanges.count == 0) {
         [self configurePaginationWindow];
         [self configureMoreMessagesIndicatorVisibility];
         return;
@@ -1185,7 +1188,7 @@ static NSInteger const ATLPhotoActionSheet = 1000;
     if (self.collectionView) {
         dispatch_suspend(self.animationQueue);
         [self.collectionView performBatchUpdates:^{
-            for (ATLDataSourceChange *change in self.objectChanges) {
+            for (ATLDataSourceChange *change in objectChanges) {
                 switch (change.type) {
                     case LYRQueryControllerChangeTypeInsert:
                         [self.collectionView insertSections:[NSIndexSet indexSetWithIndex:change.newIndex]];
@@ -1207,7 +1210,6 @@ static NSInteger const ATLPhotoActionSheet = 1000;
                         break;
                 }
             }
-            [self.objectChanges removeAllObjects];
         } completion:^(BOOL finished) {
             dispatch_resume(self.animationQueue);
         }];
